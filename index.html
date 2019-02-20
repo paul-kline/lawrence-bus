@@ -21,7 +21,7 @@
           <div v-if="stop.arrivals && stop.arrivals.length > 0">
             <div class="card-text">
               <ul class="list-group">
-                <li class="list-group-item" v-bind:class="[(arrival.type == 'live') ? 'bg-success' : '']" v-for="(arrival, index) in stop.arrivals" :key="index+ 'arr' + stop.id">
+                <li class="list-group-item" v-bind:class="[(arrival.type == 'live') ? 'bg-info' : '']" v-for="(arrival, index) in stop.arrivals" :key="index+ 'arr' + stop.id">
                   <div>{{ arrival.type }}: {{wantedRoutes.find(wr => wr.id == arrival.route).short_name}}</div>
                   <div>ETA: {{ arrival.avg }} mins</div>
                 </li>
