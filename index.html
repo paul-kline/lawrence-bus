@@ -20,6 +20,7 @@
           <h6 class="card-subtitle mb-2 text-muted">{{ stop.description }}</h6>
           <div v-if="stop.arrivals && stop.arrivals.length > 0">
             <div class="card-text">
+              <span v-if="stop.dist">dist:~{{ round(stop.dist, 3) }}km</span>
               <ul class="list-group">
                 <li class="list-group-item" v-bind:class="[(arrival.type == 'live') ? 'bg-info' : '']" v-for="(arrival, index) in stop.arrivals" :key="index+ 'arr' + stop.id">
                   <div>{{ arrival.type }}: {{wantedRoutes.find(wr => wr.id == arrival.route).short_name}}</div>
@@ -218,6 +219,10 @@
 
       function deg2rad(deg) {
         return deg * (Math.PI / 180);
+      }
+      function round(num, decimals) {
+        const c = Math.pow(10, decimals);
+        return Math.round(num * c) / c;
       }
     </script>
   </body>
