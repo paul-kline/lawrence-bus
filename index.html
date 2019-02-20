@@ -136,7 +136,11 @@
           this.keepChecking();
 
           //watch and order by position:
-          navigator.geolocation.watchPosition(this.updatePosition);
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(this.updatePosition);
+            navigator.geolocation.watchPosition(this.updatePosition);
+          }
+
           console.log("mounted!");
         }
       });
