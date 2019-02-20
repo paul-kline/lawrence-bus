@@ -18,8 +18,10 @@ async function getter(fieldName, promiseToGet, fresh = false) {
   localStorage[fieldName] = JSON.stringify(z);
   return z;
 }
-async function getBuses(fresh = false) {
-  return getter("buses", () => myFetchAsJSON(baseUrl + busesSuff), fresh);
+async function getBuses() {
+  //   return getter("buses", () => myFetchAsJSON(baseUrl + busesSuff), fresh);
+  // this should always be fresh!
+  return myFetchAsJSON(baseUrl + busesSuff);
 }
 
 async function getRoutes(fresh = false) {

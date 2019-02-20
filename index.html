@@ -45,6 +45,9 @@
                     {{ arrival.type }}:
                     {{wantedRoutes.find(wr => wr.id == arrival.route).short_name}}
                   </div>
+                  <div v-if="arrival.type == 'live'">
+                    Stops away: {{ arrival.stopsAway }}
+                  </div>
                   <div>ETA: {{ arrival.avg }} mins</div>
                 </li>
               </ul>
@@ -84,13 +87,26 @@
           wantedRoutes: [],
           allRoutes: [],
           allStops: [],
-          buses: [],
+          liveBuses: [],
           checkDelay: 10000,
           shouldCheck: true,
           missingParams: false
         },
         methods: {
+          queryBuses: async function() {
+            //fetches buses and sets.
+            const allBuses = await getBuses();
+
+            //go ahead and filter the buses down to buses for routes we care about.
+            this.liveBuses = allBuses.filter(b =>
+              this.wantedRoutes.map(wr => wr.id).includes(b.route)
+            );
+            console.log("buses set:", this.liveBuses);
+          },
           queryStops: function() {
+            //each time stop ETAs are updated, get the live bus info as well.
+            this.queryBuses();
+
             // console.log("checking for updates");
             this.wantedStops.forEach(stop => {
               //   const stopId = stop.id;
@@ -101,15 +117,44 @@
           },
           updateStop: async function(stop) {
             let res = await myFetchAsJSON(baseUrl + stopSuff + stop.id);
-            //weird formatting:
+            //weird formatting. Here's how to get the info I want out of the response:
             res = res.etas[stop.id].etas;
-            window.res = res;
+            // window.res = res; // debugging
+            //only get the bus etas for the routes specified.
             res = res.filter(r =>
               this.wantedRoutes.map(wr => wr.id).includes(r.route)
             );
+            //trigger vue reset. do I need this over a simple assignment?
             stop.arrivals = [];
             stop.arrivals.push(...res);
+            //indicate when it has been updated.
             stop.updated = new Date();
+
+            //set the number of stops away the LIVE arrivals are.
+            let liveArrivals = stop.arrivals.filter(ar => ar.type == "live");
+            liveArrivals.forEach(arrival => {
+              //assuming the liveBuses prop has been recently set.
+              const busStatus = this.liveBuses.find(
+                b => b.id == arrival.bus_id
+              );
+              const lastStop = busStatus.lastStop;
+              const imatStopID = stop.id;
+              const curRoute = this.allRoutes.find(r => r.id == arrival.route);
+              const curRouteStops = curRoute.stops;
+              const myStopIndex = curRouteStops.indexOf(imatStopID);
+              const lastBusStopIndex = curRouteStops.indexOf(lastStop);
+              const stopsAway =
+                myStopIndex > lastBusStopIndex
+                  ? myStopIndex - lastBusStopIndex
+                  : curRouteStops.length - lastBusStopIndex + myStopIndex;
+              console.log("curroute", curRoute);
+              console.log("my stop id:", imatStopID);
+              console.log("lastStop was:", lastStop);
+              console.log("stop list:", curRouteStops);
+              console.log("stops away:", stopsAway);
+              arrival.stopsAway = stopsAway;
+              // console.log("arrival:", arrival, "bus status:", busStatus);
+            });
             // Vue.set(this.stop.arrivals,res)
             // console.log(res);
           },
