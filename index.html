@@ -11,6 +11,7 @@
       integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
       crossorigin="anonymous"
     />
+    <link rel="shortcut icon" href="/images/1x/baseline_directions_bus_black_18dp.png" />
   </head>
   <body>
     <div id="app" class="container">
@@ -18,17 +19,18 @@
         <div class="card-body">
           <h5 class="card-title">{{ stop.code }}: {{ stop.name }}</h5>
           <h6 class="card-subtitle mb-2 text-muted">{{ stop.description }}</h6>
-          <div v-if="stop.arrivals && stop.arrivals.length > 0">
-            <div class="card-text">
-              <span v-if="stop.dist">dist:~{{ round(stop.dist, 3) }}km</span>
+
+          <div class="card-text">
+            <span v-if="stop.dist">dist:~{{ round(stop.dist, 3) }}km</span>
+            <div v-if="stop.arrivals && stop.arrivals.length > 0">
               <ul class="list-group">
                 <li class="list-group-item" v-bind:class="[(arrival.type == 'live') ? 'bg-info' : '']" v-for="(arrival, index) in stop.arrivals" :key="index+ 'arr' + stop.id">
                   <div>{{ arrival.type }}: {{wantedRoutes.find(wr => wr.id == arrival.route).short_name}}</div>
                   <div>ETA: {{ arrival.avg }} mins</div>
                 </li>
               </ul>
-              updated: {{ stop.updated.toLocaleTimeString() }}
             </div>
+            <div v-if="stop.updated">updated: {{ stop.updated.toLocaleTimeString() }}</div>
           </div>
         </div>
       </div>
@@ -64,7 +66,7 @@
           allRoutes: [],
           allStops: [],
           buses: [],
-          checkDelay: 5000,
+          checkDelay: 10000,
           shouldCheck: true
         },
         methods: {
@@ -112,6 +114,14 @@
               ws.dist = getDist(p.coords.latitude, p.coords.longitude, ws.lat, ws.lon);
             });
             this.wantedStops = this.wantedStops.sort((a, b) => a.dist - b.dist);
+          },
+          matchRoutes(...ids) {
+            let result = {};
+            ids.forEach(id => {
+              //find the
+              result[id] = this.allRoutes.find(r => this.paramRoutes.includes(parseInt(r.short_name.replace(/[a-zA-Z]/g, ""))));
+            });
+            return result;
           }
         },
         mounted: async function() {
