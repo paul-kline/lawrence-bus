@@ -179,6 +179,8 @@
       //https://stackoverflow.com/questions/43262121/trying-to-use-fetch-and-pass-in-mode-no-cors/43268098
       async function myFetch(targetUrl) {
         const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+        const proxyUrl = "https://utils.pauliankline.com/proxy.php?csurl=";
+
         return fetch(proxyUrl + targetUrl);
       }
 
