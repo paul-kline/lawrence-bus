@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Bus Bus</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div id="app" class="container">
+      <div class="card" v-for="(stop, index) in wantedStops" :key="'id' + stop.id">
+        <div class="card-body">
+          <h5 class="card-title">{{ stop.code }}: {{ stop.name }}</h5>
+          <h6 class="card-subtitle mb-2 text-muted">{{ stop.description }}</h6>
+          <div v-if="stop.arrivals && stop.arrivals.length > 0">
+            <div class="card-text">
+              <ul class="list-group">
+                <li class="list-group-item" v-bind:class="[(arrival.type == 'live') ? 'bg-success' : '']" v-for="(arrival, index) in stop.arrivals" :key="index+ 'arr' + stop.id">
+                  <div>{{ arrival.type }}: {{wantedRoutes.find(wr => wr.id == arrival.route).short_name}}</div>
+                  <div>ETA: {{ arrival.avg }} mins</div>
+                </li>
+              </ul>
+              updated: {{ stop.updated.toLocaleTimeString() }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+      integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+      integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script>
+      const baseUrl = "https://mybuslawrence.doublemap.com/map/v2/";
+      const routesSuff = "routes";
+      const busesSuff = "buses";
+      const stopsSuff = "stops";
+      const stopSuff = "eta?stop=";
+      const stopKey = "stop";
+      const busesKey = "buses";
+      var app = new Vue({
+        el: "#app",
+        data: {
+          message: "Hello Vue!",
+          paramStops: [],
+          wantedStops: [],
+          paramRoutes: [],
+          wantedRoutes: [],
+          allRoutes: [],
+          allStops: [],
+          buses: [],
+          checkDelay: 5000,
+          shouldCheck: true
+        },
+        methods: {
+          queryStops: function() {
+            // console.log("checking for updates");
+            this.wantedStops.forEach(stop => {
+              //   const stopId = stop.id;
+              let me = this;
+
+              setTimeout(() => me.updateStop(stop), 0);
+            });
+          },
+          updateStop: async function(stop) {
+            let res = await myFetchAsJSON(baseUrl + stopSuff + stop.id);
+            //weird formatting:
+            res = res.etas[stop.id].etas;
+            window.res = res;
+            res = res.filter(r => this.wantedRoutes.map(wr => wr.id).includes(r.route));
+            stop.arrivals = [];
+            stop.arrivals.push(...res);
+            stop.updated = new Date();
+            // Vue.set(this.stop.arrivals,res)
+            // console.log(res);
+          },
+          initializeStops: function() {
+            this.wantedStops.forEach(stop => {
+              //must use vue to initialize this property.
+              Vue.set(stop, "arrivals", []);
+              Vue.set(stop, "updated", null);
+            });
+          },
+          keepChecking: function() {
+            if (this.shouldCheck) {
+              this.queryStops();
+              let me = this;
+              setTimeout(me.keepChecking, this.checkDelay);
+            }
+          },
+          updatePosition: function(p) {
+            console.log(p);
+            //p.coords.latitude
+            //stop.lat/lon
+            //set all distances:
+            this.wantedStops.forEach(ws => {
+              ws.dist = getDist(p.coords.latitude, p.coords.longitude, ws.lat, ws.lon);
+            });
+            this.wantedStops = this.wantedStops.sort((a, b) => a.dist - b.dist);
+          }
+        },
+        mounted: async function() {
+          const params = getParams();
+          console.log("params", params);
+          this.paramStops = JSON.parse(params.stops);
+          this.paramRoutes = JSON.parse(params.routes);
+          //sets routes from localstorage or from api.
+          this.allRoutes = await getRoutes();
+          console.log("routes are", this.routes);
+
+          //sets stops from local or api:
+          this.allStops = await getStops();
+
+          this.wantedStops = this.allStops.filter(s => this.paramStops.includes(parseInt(s.code)));
+          console.log("wantedStops", this.wantedStops);
+          this.initializeStops();
+          this.wantedRoutes = this.allRoutes.filter(r => app.paramRoutes.includes(parseInt(r.short_name.replace(/[a-zA-Z]/g, ""))));
+          console.log("wantedRoutes", this.wantedRoutes);
+
+          //query each stop info:
+          //   this.queryStops();
+          this.keepChecking();
+
+          //watch and order by position:
+          navigator.geolocation.watchPosition(this.updatePosition);
+          console.log("mounted!");
+        }
+      });
+
+      async function getter(fieldName, promiseToGet, fresh = false) {
+        if (!fresh) {
+          const k = localStorage[fieldName];
+          if (k) {
+            return JSON.parse(k);
+          }
+        }
+        //if you make it here, have to get fresh. store it.
+        const z = await promiseToGet();
+        localStorage[fieldName] = JSON.stringify(z);
+        return z;
+      }
+      async function getBuses(fresh = false) {
+        return getter("buses", () => myFetchAsJSON(baseUrl + busesSuff), fresh);
+      }
+
+      async function getRoutes(fresh = false) {
+        return getter("routes", () => myFetchAsJSON(baseUrl + routesSuff), fresh);
+      }
+      async function getStops(fresh = false) {
+        return getter("stops", () => myFetchAsJSON(baseUrl + stopsSuff), fresh);
+      }
+      function getParams() {
+        return parse_query_string(window.location.search.substring(1));
+      }
+      async function myFetchAsJSON(targetUrl) {
+        const k = await myFetch(targetUrl);
+        return k.json();
+      }
+
+      //https://stackoverflow.com/questions/43262121/trying-to-use-fetch-and-pass-in-mode-no-cors/43268098
+      async function myFetch(targetUrl) {
+        const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+        return fetch(proxyUrl + targetUrl);
+      }
+
+      //code taken from 'best' answer here: https://stackoverflow.com/questions/979975/how-to-get-the-value-from-the-get-parameters
+      function parse_query_string(query) {
+        var vars = query.split("&");
+        var query_string = {};
+        for (var i = 0; i < vars.length; i++) {
+          var pair = vars[i].split("=");
+          var key = decodeURIComponent(pair[0]);
+          var value = decodeURIComponent(pair[1]);
+          // If first entry with this name
+          if (typeof query_string[key] === "undefined") {
+            query_string[key] = decodeURIComponent(value);
+            // If second entry with this name
+          } else if (typeof query_string[key] === "string") {
+            var arr = [query_string[key], decodeURIComponent(value)];
+            query_string[key] = arr;
+            // If third or later entry with this name
+          } else {
+            query_string[key].push(decodeURIComponent(value));
+          }
+        }
+        return query_string;
+      }
+
+      //https://stackoverflow.com/questions/18883601/function-to-calculate-distance-between-two-coordinates
+      //dist in KM
+      function getDist(lat1, lon1, lat2, lon2) {
+        var R = 6371; // Radius of the earth in km
+        var dLat = deg2rad(lat2 - lat1); // deg2rad below
+        var dLon = deg2rad(lon2 - lon1);
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var d = R * c; // Distance in km
+        return d;
+      }
+
+      function deg2rad(deg) {
+        return deg * (Math.PI / 180);
+      }
+    </script>
+  </body>
+</html>
